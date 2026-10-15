@@ -318,6 +318,19 @@ function spin(){
   if(spinning) return;
   spinning=true;
 
+  // 解锁语音朗读：转轮动画结束后才会呼叫 speak()，那时已经离开使用者
+  // 点击/拉杆的那个瞬间（是靠 transitionend 事件触发的），Safari（尤其
+  // iOS）会判定那不是使用者操作而整段静音。这里趁着现在还在使用者手势
+  // 当下，先同步发一个无声的 utterance「解锁」语音功能，之后 finish()
+  // 里真正要念的那句才有机会正常出声。
+  if('speechSynthesis' in window){
+    try{
+      const unlock=new SpeechSynthesisUtterance(' ');
+      unlock.volume=0;
+      speechSynthesis.speak(unlock);
+    }catch(e){}
+  }
+
   // 拉杆动画
   const lever=$("#lever"); lever.classList.add("pulled");
   setTimeout(()=>lever.classList.remove("pulled"),420);
@@ -452,12 +465,13 @@ if('speechSynthesis' in window){
 
 function speak(text){
   if(!voiceOn || !('speechSynthesis' in window)) return;
+  if(!zhVoice) return; // 找不到中文语音就不出声，避免用错的语音乱念
   speechSynthesis.cancel();
   const u=new SpeechSynthesisUtterance(text);
   u.lang="zh-TW";   // 维持原台湾腔，不做任何改动
-  if(zhVoice) u.voice=zhVoice;
+  u.voice=zhVoice;
   u.rate=0.92;
-  u.pitch=1.08;     
+  u.pitch=1.08;
   u.volume=1;
   speechSynthesis.speak(u);
 }
